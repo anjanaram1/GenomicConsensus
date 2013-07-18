@@ -227,8 +227,15 @@ def _buildParameterSet(parameterSetName, nameValuePairs):
     qvModelParams = cc.QvModelParams(*[ float(snd(pair)) for pair in nameValuePairs ])
     quiverConfig = cc.QuiverConfig(qvModelParams,
                                    cc.ALL_MOVES,
-                                   cc.BandingOptions(4, 5),
-                                   -12.5)
+
+                                   # Hacked:
+                                   cc.BandingOptions(4, 20),
+                                   -50)
+
+                                   # Original:
+                                   # cc.BandingOptions(4, 5),
+                                   # -12.5)
+
     return ParameterSet(parameterSetName, model, chem, quiverConfig)
 
 def _loadParameterSets(iniFilename):
