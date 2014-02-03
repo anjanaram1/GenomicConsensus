@@ -171,21 +171,6 @@ def parseOptions():
         type=str,
         dest="_barcode",
         help="Only process reads with the given barcode name.")
-    def parseReadStratum(s):
-        rs = map(int, s.split("/"))
-        assert len(rs) == 2
-        assert rs[0] < rs[1]
-        return rs
-    readSelection.add_argument(
-        "--readStratum",
-        help="A string of the form 'n/N', where n, and N are integers, 0 <= n < N, designating" \
-             " that the reads are to be deterministically split into N strata of roughly even"  \
-             " size, and stratum n is to be used for variant and consensus calling.  This is"   \
-             " mostly useful for Quiver development.",
-        dest="readStratum",
-        default=None,
-        type=parseReadStratum)
-
 
     algorithm = parser.add_argument_group("Algorithm and parameter settings")
     algorithm.add_argument(
@@ -350,13 +335,17 @@ def parseOptions():
     options.fastqOutputFilename = None
     options.csvOutputFilename   = None
 
-
     for outputFilename in options.outputFilenames:
         fmt = fileFormat(outputFilename)
         if   fmt == "GFF":   options.gffOutputFilename   = outputFilename
         elif fmt == "FASTA": options.fastaOutputFilename = outputFilename
         elif fmt == "FASTQ": options.fastqOutputFilename = outputFilename
         elif fmt == "CSV":   options.csvOutputFilename   = outputFilename
+
+    if options.inputFilename.endswith(".bam"):
+        options.usingBam, options.usingCmpH5 = True, False
+    else:
+        options.usingBam, options.usingCmpH5 = False, True
 
     for path in (options.inputFilename, options.referenceFilename):
         if path != None:
