@@ -388,7 +388,8 @@ class PluralityWorker(object):
         alnHits = readsInWindow(self._inCmpH5, referenceWindow,
                                 depthLimit=options.coverage,
                                 minMapQV=options.minMapQV,
-                                strategy="longest",
+                                #strategy="longest",
+                                strategy="fileorder",
                                 barcode=options.barcode)
         return (referenceWindow,
                 pluralityConsensusAndVariants(referenceWindow, refSeqInWindow,
