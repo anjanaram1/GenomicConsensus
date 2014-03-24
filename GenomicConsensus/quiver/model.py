@@ -37,6 +37,7 @@ from pkg_resources import resource_filename, Requirement
 
 from GenomicConsensus.utils import die
 from GenomicConsensus.quiver.utils import asFloatFeature, fst, snd
+from pbcore.chemistry import ChemistryLookupError
 import ConsensusCore as cc
 
 __all__ = [ "ParameterSet",
@@ -119,7 +120,7 @@ class Model(object):
         """
         assert aln.referenceSpan > 0
         name = str(aln.rowNumber)
-        chemistry = aln.sequencingChemistry
+        chemistry = chemOrUnknown(aln)
         read = cc.Read(cls.extractFeatures(aln), name, chemistry)
         return cc.MappedRead(read,
                              int(aln.RCRefStrand),
@@ -181,21 +182,16 @@ def _getResourcesDirectory():
     return resource_filename(Requirement.parse("GenomicConsensus"),
                              "GenomicConsensus/quiver/resources")
 
-def _majorityChemistry(cmpH5):
+def chemOrUnknown(aln):
     """
-    For the moment, we are doing Quiver analyses based on the majority
-    chemistry represented in the cmp.h5 file.  Admittedly this could
-    lead to suboptimal Quiver performance on mixed-chemistry cmp.h5
-    files, but it is expedient.  Tie-breaking is done by alphabetical
-    order of chemistry name.
+    Chemistry if it's loaded, otherwise "unknown"
+    (If chemistry wasn't loaded, user must have manually selected parameter set)
     """
-    chemistries = cmpH5.movieInfoTable.SequencingChemistry
-    counts = collections.Counter(chemistries).most_common()
-    sortedCounts = sorted(counts, key=lambda t: (t[1], t[0]), reverse=True)
-    return sortedCounts[0][0]
-
-def _allChemistries(cmpH5):
-    return set(cmpH5.movieInfoTable.SequencingChemistry)
+    try:
+        chemistry = aln.sequencingChemistry
+    except ChemistryLookupError:
+        chemistry = "unknown"
+    return chemistry
 
 def _isChemistryMixSupported(allChems):
     return len(allChems) == 1 or set(allChems).issubset(set(["C2", "P4-C2", "P5-C3"]))
@@ -331,7 +327,7 @@ class QuiverConfig(object):
         return loadQuiverConfig("unknown.NoQVsModel")
 
     def extractMappedRead(self, aln, windowStart):
-        pset = self.parameterSets.get(aln.sequencingChemistry) or \
+        pset = self.parameterSets.get(chemOrUnknown(aln)) or \
                self.parameterSets.get("*")
         model = pset.model
         return model.extractMappedRead(aln, windowStart)
@@ -385,7 +381,7 @@ def loadParameterSets(parametersFile=None, spec=None, cmpH5=None):
                 "cmp.h5 for chemistry \"%s\" " % chemistryName)
         params = { "*" : p }
     else:
-        chemistryNames = list(_allChemistries(cmpH5))
+        chemistryNames = list(set(cmpH5.sequencingChemistry))  # uniquify
         if not _isChemistryMixSupported(chemistryNames):
             logging.warn("Unsupported chemistry mix, results will be undefined: %s" % \
                          ", ".join(chemistryNames))
