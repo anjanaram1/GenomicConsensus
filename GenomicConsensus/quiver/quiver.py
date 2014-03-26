@@ -248,12 +248,15 @@ def configure(options, cmpH5):
             params = M.loadParameterSets(options.parametersFile, spec="unknown.NoQVsModel")
         else:
             params = M.loadParameterSets(options.parametersFile, cmpH5=cmpH5)
-            if not M.allQVsLoaded(cmpH5):
-                logging.warn(
-                    "This .cmp.h5 file lacks some of the QV data tracks that are required " +
-                    "for optimal performance of the Quiver algorithm.  For optimal results" +
-                    " use the ResequencingQVs workflow in SMRTPortal with bas.h5 files "    +
-                    "from an instrument using software version 1.3.1 or later.")
+            qvMsg = "This .cmp.h5 file lacks some of the QV data tracks that are required " + \
+                    "for optimal performance of the Quiver algorithm.  For optimal results" + \
+                    " use the ResequencingQVs workflow in SMRTPortal with bas.h5 files "    + \
+                    "from an instrument using software version 1.3.1 or later, or the "     + \
+                    "--forQuiver option to pbalign."
+            if not M.enoughQVsLoaded(cmpH5):
+                raise U.IncompatibleDataException(qvMsg)
+            elif not M.allQVsLoaded(cmpH5):
+                logging.warn(qvMsg)
     else:
         params = M.loadParameterSets(options.parametersFile,
                                     spec=options.parametersSpec,

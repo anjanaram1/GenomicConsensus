@@ -342,6 +342,13 @@ def allQVsLoaded(cmpH5):
     """
     return AllQVsModel.isCompatibleWithCmpH5(cmpH5)
 
+def enoughQVsLoaded(cmpH5):
+    """
+    If lacking QVs other than possibly the Merge QV, we should abort.
+    This is the check.
+    """
+    return NoMergeQVModel.isCompatibleWithCmpH5(cmpH5)
+
 
 def loadParameterSets(parametersFile=None, spec=None, cmpH5=None):
     """
