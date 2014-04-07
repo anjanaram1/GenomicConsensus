@@ -1,29 +1,21 @@
 Quiver FAQ
 ==========
 
-EviCons? GenomicConsensus? Quiver? Plurality?  I'm confused!
+What are EviCons? GenomicConsensus? Quiver? Plurality?  
 ------------------------------------------------------------
-**GenomicConsensus** is the current PacBio consensus and variant
-calling suite.  It contains a main program, ``variantCaller.py``,
-which provides two consensus / variant calling algorithms: **Plurality**
-and **Quiver**.  You can run these algorithms by calling
-``variantCaller.py --algorithm=[quiver|plurality]`` or through the
-convenience wrapper scripes ``quiver`` and ``plurality``.
+**GenomicConsensus** is the current PacBio consensus and variant calling suite.  It contains a main program, ``variantCaller.py``,
+which provides two consensus / variant calling algorithms: **Plurality** and **Quiver**.  These algorithms can be run by calling ``variantCaller.py --algorithm=[quiver|plurality]`` or by going through the convenience wrapper scripes ``quiver`` and ``plurality``.
 
-**EviCons** was the previous generation PacBio variant caller and was
-deprecated in release 1.3.1.
+**EviCons** was the previous generation PacBio variant caller (removed in software release v1.3.1).
 
-Not to confuse you, but there is also a separate package called
-**ConsensusCore**.  This is a package containing a C++ library where all
-the computation behind Quiver is done.  You shouldn't have to worry
-about it once it's installed.
+A separate package called **ConsensusCore** is a C++ library where all the computation behind Quiver is done (and is transparent to the user after installation).
 
 
 What is Plurality?
 ------------------
-**Plurality** is a very simple variant calling algorithm: stack up the
+**Plurality** is a very simple variant calling algorithm: it stacks up the
 aligned reads (alignment as produced by BLASR, or alternate mapping
-tool), and for each column under a reference base, call the most
+tool), and for each column under a reference base, calls the most
 abundant (i.e., the plurality) read base (or bases, or deletion) as
 the consensus at that reference position.
 
@@ -46,7 +38,7 @@ Consider this example::
 
 Note here that every read has a deletion and the correct consensus
 call would be "AAA", but due to the mapper's freedom in gap-placement
-at the single-read level, the plurality sequence is "AAAA"---the
+at the single-read level, the plurality sequence is "AAAA"---so the
 deletion is missed.  Local realignment, which plurality does not do,
 but which could be considered as implicit in the Quiver algorithm,
 essentially pushes the gaps here to the same column, thus identifying
@@ -55,8 +47,8 @@ the deletion.
 What is Quiver?
 ---------------
 **Quiver** is a more sophisticated algorithm that finds the maximum
-likelihood template sequence given PacBio reads of the template.  We
-model PacBio reads using a conditional random field approach that
+likelihood template sequence given PacBio reads of the template. 
+PacBio reads are modeled using a conditional random field approach that
 prescribes a probability to a read given a template sequence.  In
 addition to the base sequence of each read, Quiver uses several
 additional *QV* covariates that the basecaller provides.  Using these
@@ -64,9 +56,9 @@ covariates provides additional information about each read, allowing
 more accurate consensus calls.
 
 Quiver does not use the alignment provided by the mapper (BLASR,
-typically), except for determining how to group reads together at the
-gross level.  It implicitly performs its own realignment, so it is
-highly sensitive to all variant types, including indels---for example
+typically), except for determining how to group reads together at a
+macro level.  It implicitly performs its own realignment, so it is
+highly sensitive to all variant types, including indels---for example,
 it resolves the example above with ease.
 
 The name **Quiver** reflects a consensus-calling algorithm that is
@@ -75,7 +67,6 @@ The name **Quiver** reflects a consensus-calling algorithm that is
 How do I run Quiver?
 --------------------
 
-If you have
 For general instructions on installing and running, see the
 HowToQuiver_ document.
 
@@ -83,7 +74,7 @@ HowToQuiver_ document.
 
 What does Quiver put in its output files?
 -----------------------------------------
-There are three output files that you can get from Quiver:
+There are three output files from Quiver:
 
 - A consensus *FASTA* file containing the consensus sequence
 - A consensus *FASTQ* file containing the consensus sequence with quality annotations
@@ -95,7 +86,7 @@ variants that are apparent in comparing the reference to the consensus
 FASTA output will correspond to variants in the output variants GFF
 file.
 
-To enable all output files, you can run, for example::
+To enable all output files, the following can be run (for example):
 
      % quiver -j16 aligned_reads.cmp.h5 -r ref.fa \
          -o consensus.fa                          \
@@ -108,24 +99,24 @@ The extension is used to determine the output file format.
 
 What does it mean that Quiver's consensus is *de novo*?
 -------------------------------------------------------
-It is *de novo* in the sense that the reference and the reference
+Quiver's consensus is *de novo* in the sense that the reference and the reference
 alignment are not used to inform the consensus output.  Only the reads
 factor into the determination of the consensus.
 
-The only time the reference sequence is used to make consensus calls,
+The only time the reference sequence is used to make consensus calls -
 when the ``--noEvidenceConsensusCall`` flag is set to ``reference`` or
-``lowercasereference`` (the default), is when there is no effective
+``lowercasereference`` (the default)- is when there is no effective
 coverage in a genomic window, so Quiver has no evidence for computing
-consensus.  The purist can set ``--noEvidenceConsensusCall=nocall`` to
+consensus.  One can set ``--noEvidenceConsensusCall=nocall`` to
 avoid using the reference even in zero coverage regions.
 
 
 What is Quiver's accuracy?
 --------------------------
 Quiver's expected accuracy is a function of coverage and chemistry.
-The C2 (discontinued) and P4-C2 chemistries provide the best accuracy,
-while the P5-C3 chemistry provides longer reads at a reduced accuracy
-and is thus best used for scaffolding-type applications.  Nominal
+The C2 chemistry (no longer available) and P4-C2 chemistries provide the most accuracy,
+while the P5-C3 chemistry provide longer reads at a slightly reduced accuracy
+(and is thus best used for scaffolding-type applications).  Nominal
 consensus accuracy levels are as follows:
 
 +----------+----------------------------+
@@ -142,61 +133,59 @@ consensus accuracy levels are as follows:
 |60-80x    | ~ Q60         | > Q55      |
 +----------+---------------+------------+
 
-The "Q" values we refer to are Phred-scaled
+The "Q" values referred to are Phred-scaled
 quality values:
 
 .. math::
    q = -10 \log_{10} p_{error}
 
-so for instance Q50 corresponds to a p_error of 0.00001---an accuracy
+for instance, Q50 corresponds to a p_error of 0.00001---an accuracy
 of 99.999%.  These accuracy expectations are based on routine
 validations performed on multiple bacterial genomes before each
 chemistry release.
 
-We are working to lower the coverage requirements needed to achieve
-high accuracy.
 
-Does Quiver need to know what sequencing chemistry I used?
+Does Quiver need to know what sequencing chemistry was used?
 ----------------------------------------------------------
 
 At present, the Quiver model is trained per-chemistry, so it is very
-important that Quiver knows the sequencing chemistry of your reads.
+important that Quiver knows the sequencing chemistries used.
 
-If you used SMRTanalysis software to build your `cmp.h5` file, the
+If SMRT Analysis software was used to build the `cmp.h5` file, the
 `cmp.h5` will be loaded with information about the sequencing
-chemistry used for each SMRTcell, and Quiver will automatically
+chemistry used for each SMRT Cell, and Quiver will automatically
 identify the right parameters to use.
 
-If you used custom software to build your `cmp.h5`, or if you want to
-override Quiver's autodetection, you can tell explicitly tell it the
-chemistry or model you want to use, for example::
+If custom software was used to build the `cmp.h5`, or an
+override of Quiver's autodetection is desired,  then the
+chemistry or model must be explicity entered. For example::
 
   % quiver -p P4-C2 ...
   % quiver -p P4-C2.AllQVsMergingByChannelModel ...
 
 
 
-Can I use a mix of chemistries in a cmp.h5 file for Quiver?
+Can a mix of chemistries be used in a cmp.h5 file for Quiver?
 -----------------------------------------------------------
 
-Yes!  Quiver automatically sees the chemistry *per-SMRTcell*, so it
+Yes!  Quiver automatically sees the chemistry *per-SMRT Cell*, so it
 can figure out the right parameters for each read and model them
 appropriately.
 
-We only support chemistry mixtures of P4-C2, P5-C3, and C2.  If you
-mix other chemistries in a `cmp.h5`, Quiver will give undefined
-results.  However you can still safely use quiver on any `cmp.h5` file
+Chemistry mixtures of P4-C2, P5-C3, and C2 are supported.  
+If other chemistries are mixed in a `cmp.h5`, Quiver will give undefined
+results.  However, Quiver can still be used on any `cmp.h5` file
 containing sequencing reads from a single chemistry.
 
 
-What are these QVs that Quiver uses?
+What are the QVs that Quiver uses?
 ------------------------------------
-Quiver uses additional QV tracks provided by the basecaller.  I like
-to think of these QVs as little breadcrumbs that are left behind by
+Quiver uses additional QV tracks provided by the basecaller.  
+These QVs may be looked at as little breadcrumbs that are left behind by
 the basecaller to help identify positions where it was likely that
-errors of given type occurred.  Formally, the QVs for a given read are
-vectors of the same length as the number of bases called; the QVs we
-use are as follows:
+errors of a given type occurred.  Formally, the QVs for a given read are
+vectors of the same length as the number of bases called; the QVs
+used are as follows:
 
   - DeletionQV
   - InsertionQV
@@ -217,8 +206,8 @@ issue a warning that its performance will be suboptimal.
 Why is Quiver making errors in some region?
 -------------------------------------------
 The most likely cause for *true* errors made by Quiver is that the
-coverage in the region was low.  If you only have 5x coverage over a
-1000-base region, you would expect 10 errors in that region.
+coverage in the region was low.  If there is 5x coverage over a
+1000-base region, then 10 errors in that region can be expected.
 
 It is important to understand that the effective coverage available to
 Quiver is not the full coverage apparent in plots---Quiver and
@@ -226,9 +215,9 @@ Plurality both filter out ambiguously mapped reads by default.  The
 remaining coverage after filtering is called the /effective coverage/.
 See the next section for discussion of `MapQV`.
 
-If you have verified that there is high effective coverage in region
+If you have verified that there is high effective coverage in the region
 in question, it is highly possible---given the high accuracy Quiver
-can achieve---that the apparent errors you are observing actually
+can achieve---that the apparent errors actually
 reflect true sequence variants.  Inspect the FASTQ output file to
 ensure that the region was called at high confidence; if an erroneous
 sequence variant is being called at high confidence, please report a
@@ -261,7 +250,7 @@ Assuming the reference in the window is "ACGT", the options are:
 
 What is `MapQV` and why is it important?
 ----------------------------------------
-`MapQV` is a single scalar Phred-scaled QV per aligned read, that
+`MapQV` is a single scalar Phred-scaled QV per aligned read that
 reflects the mapper's degree of certainty that the read aligned to
 *this* part of the reference and not some other.  Unambigously mapped
 reads will have a high `MapQV` (typically 255), while a read that was
@@ -273,16 +262,16 @@ calls.  Quiver and Plurality both filter out aligned reads with a
 MapQV below 20 (by default), so as not to call a variant using data of
 uncertain genomic origin.
 
-This can cause problems when you are using Quiver to get a consensus
-sequence.  If your genome contains long (relative to your library
+This can be problematic if using Quiver to get a consensus
+sequence.  If the genome of interest contains long (relative to the library
 insert size) highly-similar repeats, the effective coverage (after
-`MapQV` filtering) may be reduced in the repeat regions---we term
+`MapQV` filtering) may be reduced in the repeat regions---this is termed
 these `MapQV` dropouts.  If the coverage is sufficiently reduced in
 these regions, Quiver will not call consensus in these regions---see
 `What does Quiver do for genomic regions with no effective coverage?`_.
 
 If you want to use ambiguously mapped reads in computing a consensus
-for a denovo assembly, you can turn off the `MapQV` filter entirely.
+for a denovo assembly, the `MapQV` filter can be turned off entirely.
 In this case, the consensus for each instance of a genomic repeat will
 be calculated using reads that may actually be from other instances of
 the repeat, so the exact trustworthiness of the consensus in that
@@ -290,20 +279,20 @@ region may be suspect.  The next section describes how to disable the
 `MapQV` filter.
 
 
-How can I turn off the `MapQV` filter and why would I want to?
+How can the `MapQV` filter be turned off and when should it be?
 --------------------------------------------------------------
-You can disable the `MapQV` filter using the flag
-``--mapQvThreshold=0`` (shorthand: ``-m=0``).  If you are running your
-Quiver job via SMRTportal, this can be done by unchecking the "Use
-only unambiguously mapped reads" option. You might want to do this in
+The `MapQV` filter can be disabled using the flag
+``--mapQvThreshold=0`` (shorthand: ``-m=0``).  If running a
+Quiver job via SMRT Portal, this can be done by unchecking the "Use
+only unambiguously mapped reads" option. Consider this in
 de novo assembly projects, but it is not recommended for variant
 calling applications.
 
 
-How do I inspect or validate the variant calls made by Quiver?
+How can variant calls made by Quiver be inspected or validated?
 --------------------------------------------------------------
 When in doubt, it is easiest to inspect the region in a tool like
-SMRTView®, which enables you to view the reads aligned to the region.
+SMRT View, which enables you to view the reads aligned to the region.
 Deletions and substitutions should be fairly easy to spot; to view
 insertions, right-click on the reference base and select "View
 Insertions Before...".
@@ -325,14 +314,13 @@ variants by quality and coverage.
   does not exceed 40---configurable using ``-q=value``.
 
 
-What happens when my sample is a mixture, or diploid?
+What happens when the sample is a mixture, or diploid?
 -----------------------------------------------------
 At present, Quiver assumes a haploid sample, and the behavior of
 *Quiver* on sample mixtures or diploid/polyploid samples is
 *undefined*.  The program will not crash, but the output results are
 not guaranteed to accord with any one of the haplotypes in the sample,
-as opposed to a potential patchwork.  We are working on improvements
-for the 2.0 release.
+as opposed to a potential patchwork.  
 
 
 Why would I want to *iterate* the mapping+Quiver process?
