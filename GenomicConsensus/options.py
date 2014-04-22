@@ -282,18 +282,11 @@ def parseOptions():
         action="store_true",
         help="Enable detection of heterozygous variants (experimental)")
     advanced.add_argument(
-        "--queueSize",
+        "--queueSize", "-Q",
         action="store",
         dest="queueSize",
         type=int,
         default=200)
-    advanced.add_argument(
-        "--queueTimeout",
-        action="store",
-        dest="queueTimeout",
-        type=int,
-        help="Work queue put() timeout, in seconds",
-        default=60)
     advanced.add_argument(
         "--threaded", "-T",
         action="store_true",

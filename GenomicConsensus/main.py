@@ -201,10 +201,7 @@ class ToolRunner(object):
                                                    options.referenceWindows)
             for chunk in chunks:
                 if self._aborting: return
-                try:
-                    self._workQueue.put(chunk, True, options.queueTimeout)
-                except:
-                    return
+                self._workQueue.put(chunk)
 
         # Write sentinels ("end-of-work-stream")
         for i in xrange(options.numWorkers):
