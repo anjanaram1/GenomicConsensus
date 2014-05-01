@@ -391,8 +391,12 @@ def variantsFromConsensus(refWindow, refSequenceInWindow, cssSequenceInWindow,
         refPos_ = min(v.refStart-refStart, len(siteCoverage)-1)
         cssPos_ = min(cssPosition[v.refStart-refStart], len(cssQvInWindow)-1)
 
-        if siteCoverage  != None: v.coverage   = siteCoverage[refPos_]
-        if cssQvInWindow != None: v.confidence = cssQvInWindow[cssPos_]
+        # make sure the arrays are non-empty before indexing into them
+        if siteCoverage is not None and np.size(siteCoverage) > 0:
+            v.coverage = siteCoverage[refPos_]
+        
+        if cssQvInWindow is not None and np.size(cssQvInWindow) > 0:
+            v.confidence = cssQvInWindow[cssPos_]
 
     return vars
 
