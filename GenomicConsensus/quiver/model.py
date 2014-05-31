@@ -77,7 +77,14 @@ _mergeByChannelParameterNames = \
 # Model classes
 #
 
+ALL_FEATURES =  [ "InsertionQV",
+                  "SubstitutionQV",
+                  "DeletionQV",
+                  "DeletionTag",
+                  "MergeQV" ]
+
 class Model(object):
+
 
     requiredFeatures = set([])
     parameterNames = []
@@ -87,7 +94,7 @@ class Model(object):
         return all(cmpH5.hasPulseFeature(feature) for feature in cls.requiredFeatures)
 
     @classmethod
-    def extractFeatures(cls, aln):
+    def extractAlignedFeatures(cls, aln):
         """
         Extract the data in a cmp.h5 alignment record into a
         ConsensusCore-friendly `QvSequenceFeatures` object.  Will
@@ -100,16 +107,26 @@ class Model(object):
         alnRead = np.fromstring(aln.read(), dtype=np.int8)
         gapMask = alnRead == ord("-")
         _args = [ alnRead[~gapMask].tostring() ]
-        for feature in [ "InsertionQV",
-                         "SubstitutionQV",
-                         "DeletionQV",
-                         "DeletionTag",
-                         "MergeQV" ]:
+        for feature in ALL_FEATURES:
             if feature in cls.requiredFeatures:
                 _args.append(asFloatFeature(aln.pulseFeature(feature)[~gapMask]))
             else:
                 _args.append(cc.FloatFeature(int(aln.readLength)))
         return cc.QvSequenceFeatures(*_args)
+
+    @classmethod
+    def extractFeatures(cls, subread):
+        # subread is a ZmwRead object
+        name = subread.readName
+        chemistry = "unknown"    # FIXME
+        _args = [ subread.basecalls() ]
+        for feature in ALL_FEATURES:
+            if feature in cls.requiredFeatures:
+                _args.append(asFloatFeature(basecalls.qv(feature)))
+            else:
+                _args.append(cc.FloatFeature(len(subread)))
+        return cc.QvSequenceFeatures(*_args)
+
 
     @classmethod
     def extractMappedRead(cls, aln, windowStart):
@@ -121,7 +138,7 @@ class Model(object):
         assert aln.referenceSpan > 0
         name = str(aln.rowNumber)
         chemistry = chemOrUnknown(aln)
-        read = cc.Read(cls.extractFeatures(aln), name, chemistry)
+        read = cc.Read(cls.extractAlignedFeatures(aln), name, chemistry)
         return cc.MappedRead(read,
                              int(aln.RCRefStrand),
                              int(aln.referenceStart - windowStart),
