@@ -84,4 +84,9 @@ def bracketedSubreads(zmw):
 
 bas = BasH5Reader("~/Data/m140518_125000_42140_c110040372550000001823110806241437_s1_p0.1.bax.h5")
 for z in bas:
-    print z.holeNumber, bracketedSubreads(z)
+    srs = bracketedSubreads(z)
+    srLens = map(len, srs)
+    if (len(srLens) >= 2 and max(srLens)-min(srLens) > 0.2*max(srLens)):
+        print "Odd zmw:"
+        print z.holeNumber, bracketedSubreads(z)
+        ipdb.set_trace()
