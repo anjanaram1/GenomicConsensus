@@ -433,28 +433,14 @@ def consensusForAlignments(refWindow, refSequence, alns, quiverConfig):
     """
     _, refStart, refEnd = refWindow
 
-    # Compute the POA consensus, which is our initial guess, and
-    # should typically be > 99.5% accurate
-    fwdSequences = [ a.read(orientation="genomic", aligned=False)
-                     for a in alns
-                     if a.spansReferenceRange(refStart, refEnd) ]
-    assert len(fwdSequences) >= quiverConfig.minPoaCoverage
-
-    try:
-        p = cc.PoaConsensus.FindConsensus(fwdSequences[:quiverConfig.maxPoaCoverage])
-    except:
-        logging.info("%s: POA could not be generated" % (refWindow,))
-        return QuiverConsensus.noCallConsensus(quiverConfig.noEvidenceConsensus,
-                                               refWindow, refSequence)
-    ga = cc.Align(refSequence, p.Sequence())
-    numPoaVariants = ga.Errors()
-    poaCss = p.Sequence()
+    # No POA --- just use the reference as a starting point.
+    poaCss = refSequence
 
     # Extract reads into ConsensusCore-compatible objects, and map them into the
     # coordinates relative to the POA consensus
     mappedReads = [ quiverConfig.extractMappedRead(aln, refStart) for aln in alns ]
-    queryPositions = cc.TargetToQueryPositions(ga)
-    mappedReads = [ lifted(queryPositions, mr) for mr in mappedReads ]
+    # queryPositions = cc.TargetToQueryPositions(ga)
+    # mappedReads = [ lifted(queryPositions, mr) for mr in mappedReads ]
 
     # Load the mapped reads into the mutation scorer, and iterate
     # until convergence.
