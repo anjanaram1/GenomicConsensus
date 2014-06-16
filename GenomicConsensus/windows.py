@@ -69,8 +69,8 @@ def kSpannedIntervals(refWindow, k, start, end, minLength=0):
     winId, winStart_, winEnd_ = refWindow
 
     # Truncate to bounds implied by refWindow
-    start = np.maximum(winStart_, start)
-    end   = np.minimum(winEnd_,   end)
+    start = np.clip(start, winStart_, winEnd_)
+    end = np.clip(end, winStart_, winEnd_)
 
     # Translate the start, end to coordinate system where
     # refWindow.start is 0.
