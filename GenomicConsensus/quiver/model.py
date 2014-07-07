@@ -241,10 +241,10 @@ def _buildParameterSet(parameterSetName, nameValuePairs):
     # differently.  Needs further work.
     #
     if parameterSetName == "unknown.NoQVsModel":
-        bandingOptions     = cc.BandingOptions(4, 20)
+        bandingOptions     = cc.BandingOptions(4, 24)
         fastScoreThreshold = -50
     else:
-        bandingOptions     = cc.BandingOptions(4, 5)
+        bandingOptions     = cc.BandingOptions(4, 6)
         fastScoreThreshold = -12.5
 
     quiverConfig = cc.QuiverConfig(qvModelParams,
