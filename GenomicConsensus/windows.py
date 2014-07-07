@@ -42,8 +42,11 @@ import numpy as np, math
 from pbcore.io.rangeQueries import projectIntoRange
 from ConsensusCore import CoveredIntervals
 
+def intervalToPair(v):
+    return (v.Begin, v.End)
+
 def kCoveredIntervals(k, tStart, tEnd, winStart, winEnd):
-    return CoveredIntervals(k, tStart, tEnd, int(winStart), int(winEnd-winStart))
+    return map(intervalToPair, CoveredIntervals(k, tStart, tEnd, int(winStart), int(winEnd-winStart)))
 
 def kSpannedIntervals(refWindow, k, start, end, minLength=0):
     """
