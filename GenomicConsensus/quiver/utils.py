@@ -122,6 +122,9 @@ def refineConsensus(mms, quiverConfig):
     Given a MultiReadMutationScorer, identify and apply favorable
     template mutations.  Return (consensus, didConverge) :: (str, bool)
     """
+    isConverged = cc.RefineConsensus(mms)
+    return mms.Template(), isConverged
+
     favorableMutationsAndScores = None
     converged = False
     tplHistory = []
@@ -221,6 +224,7 @@ def refineDinucleotideRepeats(mms):
     To resolve this issue, we need to explore the likelihood change
     for wobbling on every dinucleotide repeat in the window.
     """
+    return cc.RefineDinucleotideRepeats(mms)
     runningLengthDiff = 0
     for ((start_, end_), dinuc) in findDinucleotideRepeats(mms.Template()):
         start = start_ + runningLengthDiff
@@ -246,18 +250,21 @@ def consensusConfidence(mms, positions=None):
     # TODO: We should be using all mutations here, not just all
     # mutations leading to unique templates.  This should be a trivial
     # fix, post-1.4.
+    return np.array(cc.ConsensusQVs(mms), dtype=np.uint8)
+
     css = mms.Template()
     allMutations = uniqueSingleBaseMutations(css, positions)
-    cssQv = []
+    cssQv = np.zeros((len(css),), dtype=np.uint8)
 
     for pos, muts in itertools.groupby(allMutations, cc.Mutation.Start):
         # Current score is '0'; exp(0) = 1
+        muts = list(muts)
         altScores = [mms.FastScore(m) for m in muts]
         with np.errstate(over="ignore", under="ignore"):
             errProb = 1. - 1. / (1. + sum(np.exp(altScores)))
-        cssQv.append(error_probability_to_qv(errProb))
+        cssQv[pos] = error_probability_to_qv(errProb)
 
-    return np.array(cssQv, dtype=np.uint8)
+    return cssQv
 
 def variantsFromAlignment(a, refWindow):
     """
@@ -394,7 +401,7 @@ def variantsFromConsensus(refWindow, refSequenceInWindow, cssSequenceInWindow,
         # make sure the arrays are non-empty before indexing into them
         if siteCoverage is not None and np.size(siteCoverage) > 0:
             v.coverage = siteCoverage[refPos_]
-        
+
         if cssQvInWindow is not None and np.size(cssQvInWindow) > 0:
             v.confidence = cssQvInWindow[cssPos_]
 
