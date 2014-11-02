@@ -357,9 +357,21 @@ class BamAlignment(object):
         #raise Unimplemented()
         return "(unknown row)"
 
-    def clippedTo(self, refStart, refEnd):
-        rStart, rEnd, uc = computeClipping(self, refStart, refEnd)
-        return ClippedBamAlignment(self, refStart, refEnd, rStart, rEnd)
+    def clippedTo(self, tStart, tEnd):
+        assert type(self) is BamAlignment
+        if (tStart >= tEnd or
+            tStart >= self.tEnd or
+            tEnd   <= self.tStart):
+            raise IndexError, "Clipping query does not overlap alignment"
+
+        uc = self.unrolledCigar(orientation="genomic")
+        refPos = self.referencePositions(orientation="genomic")
+        readPos = self.readPositions(orientation="genomic")
+        s = refPos.searchsorted(tStart, "left")
+        e = refPos.searchsorted(tEnd, "left")
+        rStart, rEnd, cUc = readPos[s], readPos[e], uc[s:e]
+
+        return ClippedBamAlignment(self, tStart, tEnd, rStart, rEnd, cUc)
 
     #TODO: remove this
     @property
@@ -503,54 +515,70 @@ class BamAlignment(object):
         else:
             return tSeqOriented
 
-    def unrolledCigar(self, orientation="native", exciseHardClips=True, exciseSoftClips=False):
+    def unrolledCigar(self, orientation="native"):
         """
-        Run-length decode the CIGAR encoding, and orient
-
-        If both `exciseSoftClips` and `exciseHardClips` are True,
-        returns an array length equal to that of the alignment.  If
-        clips are not excised, the return value length will also
-        include them.
-
-        `exciseSoftClips` requires `exciseHardClips`
+        Run-length decode the CIGAR encoding, and orient.  Clipping ops are removed.
         """
-        if exciseSoftClips and not exciseHardClips:
-            raise ValueError, "`exciseSoftClips` requires `exciseHardClips`"
-        ucGenomic = unrollCigar(self.peer.cigar, exciseSoftClips=exciseSoftClips)
+        ucGenomic = unrollCigar(self.peer.cigar, exciseSoftClips=True)
         ucOriented = ucGenomic[::-1] if (orientation == "native" and self.isReverseStrand) else ucGenomic
         return ucOriented
 
-    def referencePositions(self, orientation="native"):
+    def referencePositions(self, aligned=True, orientation="native"):
         """
-        Returns an array of reference positions such that
-        referencePositions[i] = reference position of the i'th column
-        in the alignment.  Insertions are grouped with the following
-        reference base, in the specified orientation.
+        Returns an array of reference positions.
 
-        Length of output array = length of alignment
+        If aligned is True, the array has the same length as the
+        alignment and referencePositions[i] = reference position of
+        the i'th column in the oriented alignment.
+
+        If aligned is False, the array has the same length as the read
+        and referencePositions[i] = reference position of the i'th
+        base in the oriented read.
         """
-        ucOriented = self.unrolledCigar(orientation, exciseSoftClips=True)
+        assert (aligned in (True, False) and
+                orientation in ("native", "genomic"))
+
+        ucOriented = self.unrolledCigar(orientation)
         refNonGapMask = (ucOriented != BAM_CINS)
+
         if self.isReverseStrand and orientation == "native":
-            return self.tEnd - 1 - np.hstack([0, np.cumsum(refNonGapMask[:-1])])
+            pos = self.tEnd - 1 - np.hstack([0, np.cumsum(refNonGapMask[:-1])])
         else:
-            return self.tStart + np.hstack([0, np.cumsum(refNonGapMask[:-1])])
+            pos = self.tStart + np.hstack([0, np.cumsum(refNonGapMask[:-1])])
 
-    def readPositions(self, orientation="native"):
-        """
-        Returns an array of read positions such that
-        readPositions[i] = read position of the i'th column
-        in the alignment.  Insertions are grouped with the following
-        read base, in the specified orientation.
+        if aligned:
+            return pos
+        else:
+            return pos[ucOriented != BAM_CDEL]
 
-        Length of output array = length of alignment
+    def readPositions(self, aligned=True, orientation="native"):
         """
-        ucOriented = self.unrolledCigar(orientation, exciseSoftClips=True)
+        Returns an array of read positions.
+
+        If aligned is True, the array has the same length as the
+        alignment and readPositions[i] = read position of the i'th
+        column in the oriented alignment.
+
+        If aligned is False, the array has the same length as the
+        mapped reference segment and readPositions[i] = read position
+        of the i'th base in the oriented reference segment.
+        """
+        assert (aligned in (True, False) and
+                orientation in ("native", "genomic"))
+
+        ucOriented = self.unrolledCigar(orientation)
         readNonGapMask = (ucOriented != BAM_CDEL)
+
         if self.isReverseStrand and orientation == "genomic":
-            return self.rEnd - 1 - np.hstack([0, np.cumsum(readNonGapMask[:-1])])
+            pos = self.rEnd - 1 - np.hstack([0, np.cumsum(readNonGapMask[:-1])])
         else:
-            return self.rStart + np.hstack([0, np.cumsum(readNonGapMask[:-1])])
+            pos = self.rStart + np.hstack([0, np.cumsum(readNonGapMask[:-1])])
+
+        if aligned:
+            return pos
+        else:
+            return pos[ucOriented != BAM_CINS]
+
 
     def pulseFeature(self, featureName, aligned=True, orientation="native"):
         """
@@ -620,7 +648,7 @@ class BamAlignment(object):
             gapCode = ord("-")
         else:
             gapCode = data.dtype.type(-1)
-        uc = self.unrolledCigar(orientation=orientation, exciseSoftClips=True)
+        uc = self.unrolledCigar(orientation=orientation)
         alnData = np.repeat(np.array(gapCode, dtype=data.dtype), len(uc))
         gapMask = (uc == gapOp)
         alnData[~gapMask] = data
@@ -658,13 +686,25 @@ class BamAlignment(object):
 
 
 class ClippedBamAlignment(BamAlignment):
-    def __init__(self, aln, tStart, tEnd, rStart, rEnd):
+    def __init__(self, aln, tStart, tEnd, rStart, rEnd, unrolledCigar):
+        # Self-consistency check
+        assert sum(unrolledCigar != BAM_CDEL) == (rEnd - rStart)
+
         self.peer   = aln.peer
         self.bam    = aln.bam
         self.tStart = tStart
         self.tEnd   = tEnd
         self.rStart = rStart
         self.rEnd   = rEnd
+        self._unrolledCigar = unrolledCigar  # genomic orientation
+
+
+
+    def unrolledCigar(self, orientation="native"):
+        if orientation=="native" and self.isReverseStrand:
+            return self._unrolledCigar[::-1]
+        else:
+            return self._unrolledCigar
 
 
 
@@ -717,38 +757,6 @@ def unrollCigar(cigar, exciseSoftClips=False):
         return ops[ops != BAM_CSOFT_CLIP]
     else:
         return ops
-
-def refPositions(uc, tStart):
-    """
-    Access the aligned reference position for each read base
-
-    The returned value will always be sorted in ascending order.
-    """
-    tPos = tStart
-    move = uc[(uc != BAM_CSOFT_CLIP)]
-    delta = np.where((move == BAM_CMATCH) | (move == BAM_CDEL), 1, 0)
-    pos_ = (np.cumsum(delta) + tStart)[move != BAM_CDEL]
-    pos = np.hstack([[tStart], pos_])[:-1]
-    return pos
-
-def computeClipping(aln, tStart, tEnd):
-    """
-    Return rStart, rEnd, unrolled cigar for clipped
-    """
-    assert type(aln) is BamAlignment
-
-    if (tStart >= tEnd or
-        tStart >= aln.tEnd or
-        tEnd   <= aln.tStart):
-        raise IndexError, "Clipping query does not overlap alignment"
-    uc = unrollCigar(aln.peer.cigar)
-    pos = refPositions(uc, aln.tStart)
-    s = pos.searchsorted(tStart, "left")
-    e = pos.searchsorted(tEnd, "left")
-    if aln.isForwardStrand:
-        return s + aln.rStart, e + aln.rStart, uc[s:e]
-    else:
-        return aln.rEnd - e, aln.rEnd - s, uc[s:e]
 
 
 # The routines below are unoptimized but are only ever used by code
