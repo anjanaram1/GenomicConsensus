@@ -10,6 +10,7 @@ import numpy as np
 from functools import wraps
 from itertools import groupby
 from os.path import abspath, expanduser
+from bisect import bisect_right, bisect_left
 
 class UnavailableFeature(Exception): pass
 class Unimplemented(Exception):      pass
@@ -357,20 +358,45 @@ class BamAlignment(object):
         #raise Unimplemented()
         return "(unknown row)"
 
-    def clippedTo(self, tStart, tEnd):
+    def clippedTo(self, refStart, refEnd):
+        """
+        Return a new `BamAlignment` that refers to a subalignment of
+        this alignment, as induced by clipping to reference
+        coordinates `refStart` to `refEnd`.
+
+        .. warning::
+            This function takes time linear in the length of the alignment.
+        """
         assert type(self) is BamAlignment
-        if (tStart >= tEnd or
-            tStart >= self.tEnd or
-            tEnd   <= self.tStart):
+        if (refStart >= refEnd or
+            refStart >= self.tEnd or
+            refEnd   <= self.tStart):
             raise IndexError, "Clipping query does not overlap alignment"
 
+        # The clipping region must intersect the alignment, though it
+        # does not have to be contained wholly within it.
+        refStart = max(self.referenceStart, refStart)
+        refEnd   = min(self.referenceEnd,   refEnd)
+        refPositions = self.referencePositions(orientation="genomic")
+        readPositions = self.readPositions(orientation="genomic")
         uc = self.unrolledCigar(orientation="genomic")
-        refPos = self.referencePositions(orientation="genomic")
-        readPos = self.readPositions(orientation="genomic")
-        s = refPos.searchsorted(tStart, "left")
-        e = refPos.searchsorted(tEnd, "left")
-        rStart, rEnd, cUc = readPos[s], readPos[e], uc[s:e]
 
+        # Clipping positions within the alignment array
+        clipStart = bisect_right(refPositions, refStart) - 1
+        clipEnd   = bisect_left(refPositions, refEnd)
+
+        # "The logic for setting rStart, rEnd is tragically
+        # complicated, due to the end-exclusive coordinate system."
+        tStart = refStart
+        tEnd   = refEnd
+        if self.isForwardStrand:
+            rStart = readPositions[clipStart]
+            rEnd   = readPositions[clipEnd - 1] + 1
+            cUc = uc[clipStart:clipEnd]
+        else:
+            rStart = readPositions[clipEnd - 1]
+            rEnd   = readPositions[clipStart] + 1
+            cUc = uc[clipStart:clipEnd]
         return ClippedBamAlignment(self, tStart, tEnd, rStart, rEnd, cUc)
 
     #TODO: remove this
@@ -687,7 +713,10 @@ class BamAlignment(object):
 
 class ClippedBamAlignment(BamAlignment):
     def __init__(self, aln, tStart, tEnd, rStart, rEnd, unrolledCigar):
-        # Self-consistency check
+
+        # Self-consistency checks
+        assert tStart <= tEnd
+        assert rStart <= rEnd
         assert sum(unrolledCigar != BAM_CDEL) == (rEnd - rStart)
 
         self.peer   = aln.peer
