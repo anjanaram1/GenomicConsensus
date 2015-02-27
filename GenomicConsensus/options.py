@@ -369,6 +369,10 @@ def parseOptions():
         elif fmt == "FASTQ": options.fastqOutputFilename = outputFilename
         elif fmt == "CSV":   options.csvOutputFilename   = outputFilename
 
+    #
+    # Here you need to work out how you want the command line
+    # interface to work for multi-bam
+    #
     if options.inputFilename.endswith(".bam"):
         options.usingBam, options.usingCmpH5 = True, False
     else:

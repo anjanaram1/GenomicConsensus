@@ -30,10 +30,10 @@
 
 # Author: David Alexander
 
-__all__ = ["loadCmpH5", "loadBam"]
+__all__ = ["loadCmpH5", "loadBam", "loadBams"]
 
 import h5py, os.path
-from pbcore.io import CmpH5Reader, BamReader
+from pbcore.io import CmpH5Reader, BamReader, MultiBamReader
 
 
 def loadCmpH5(filename, referenceFname, disableChunkCache=False):
@@ -55,3 +55,8 @@ def loadCmpH5(filename, referenceFname, disableChunkCache=False):
 def loadBam(filename, referenceFname):
     filename = os.path.abspath(os.path.expanduser(filename))
     return BamReader(filename, referenceFname)
+
+
+def loadBams(filenames, referenceFname):
+    filenames = map(os.path.abspath(os.path.expanduser(filenames))
+    return MultiBamReader(filenames, referenceFname)
